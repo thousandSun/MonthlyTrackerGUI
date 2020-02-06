@@ -2,46 +2,80 @@
 For testing purposes will not use DataBase yet
 Therefore, whenever there is a `print()` statement
 that will be replaced by the proper write functions"""
-# import sqlite3
 # import logging
 import tkinter as tk
+from database_connection import DatabaseConnection
 from tkinter import ttk, messagebox
 
-test_list = [
-    'Credit Card',
-    'House',
-    'Car'
-]
+
+def get_entries() -> list:
+    with DatabaseConnection('bills.db') as connection:
+        cursor = connection.cursor()
+        cursor.execute('SELECT *, oid FROM bills')
+        entries = cursor.fetchall()
+    # print(entries)
+    return entries
 
 
-def test_clicked():
-    print()
+def clear_frame(frame: tk.LabelFrame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+
+
+def edit(lb: tk.Listbox):
+    pass
 
 
 def bills():
+    entries = get_entries()
+    clear_frame(show_frame)
     show_frame['text'] = 'Bills'
     show_frame.grid(row=0, column=0)
     customize_frame.grid(row=1, column=0, padx=5, pady=5)
-    entry_label = tk.Radiobutton(
-        show_frame,
-        text=f'{"Name"}: Total: ${200000:.2f} Payment: ${1145:.2f} Remaining: ${200000:.2f} Paid to Date: ${0:.2f}',
-        variable=selection,
-        value=1,
-        command=test_clicked
-    )
-    entry_label.place(x=10, y=5)
-    for i in range(1, 5):
-        entry_label = tk.Radiobutton(
-            show_frame,
-            text=f'{"Name"}: Total: ${200000:.2f} Payment: ${1145:.2f} Remaining: ${200000:.2f} Paid to Date: ${0:.2f}',
-            variable=selection,
-            value=(i+1),
-            command=test_clicked
-        )
-        entry_label.place(x=10, y=(i*30))
+    listbox = tk.Listbox(show_frame)
+    listbox.place(x=0, y=0, relwidth=1.0)
+
+    for entry in entries:
+        name, total, payment, remaining, paid, complete, oid = entry
+        if not bool(complete):
+            listbox.insert(
+                oid,
+                f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
+                f'Paid to Date: ${paid:,.2f}'
+            )
+        else:
+            listbox.insert(
+                'END',
+                f'{name.capitalize()}: PAID IN FULL'
+            )
+    edit_btn = tk.Button(show_frame, text='Edit', command=lambda: edit(listbox))
+    edit_btn.pack(side='bottom')
+
+    # entry_button = tk.Radiobutton(
+    #     show_frame,
+    #     text=f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
+    #          f'Paid to Date: ${paid:,.2f} Complete: {bool(complete)}',
+    #     variable=selection,
+    #     value=oid,
+    #     command=lambda: test_clicked(entry_button['text'])
+    # )
+    # entry_button.place(x=10, y=5)
+    # for i, entry in enumerate(entries[1:]):
+    #     name, total, payment, remaining, paid, complete, oid = entry
+    #     entry_button = tk.Radiobutton(
+    #         show_frame,
+    #         text=f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
+    #              f'Paid to Date: ${paid:,.2f} Complete: {bool(complete)}',
+    #         variable=selection,
+    #         value=oid,
+    #         command=lambda: test_clicked(entry_button['text']),
+    #         wraplength=600
+    #     )
+    #     entry_button.place(x=10, y=((i+1)*30))
 
 
 def category():
+    clear_frame(show_frame)
     show_frame['text'] = 'Categories'
     show_frame.grid(row=0, column=0, padx=5, pady=5)
     customize_frame.grid(row=1, column=0)
@@ -50,30 +84,34 @@ def category():
 root = tk.Tk()
 root.option_add('*tearOff', False)
 root.title('Monthly Tracker')
-root.geometry('610x410')
-root.resizable(False, False)
+root.geometry('700x400')
+# root.resizable(False, False)
 
 # creates the main frame for placing all other options
 main_frame = tk.Frame(root)
 main_frame.grid()
 
-show_frame = tk.LabelFrame(main_frame, width=600, height=250)
-customize_frame = tk.LabelFrame(main_frame, width=600, height=140, text='Customize')
+show_frame = tk.LabelFrame(main_frame, width=680, height=250)
+customize_frame = tk.LabelFrame(main_frame, width=680, height=140, text='Customize')
+
 
 selection = tk.IntVar()
-selection.set(1)
 
 # creates a menu bar
-menubar = tk.Menu()
+menubar = tk.Menu(root)
 root.config(menu=menubar)
-
-# adds drop down
 mode_menu = tk.Menu(menubar)
-menubar.add_cascade(menu=mode_menu, label='Mode')
+help_menu = tk.Menu(menubar)
+menubar.add_cascade(label='Mode', menu=mode_menu)
+menubar.add_cascade(label='Help', menu=help_menu)
 
 mode_menu.add_command(label='Bills', command=bills)
 mode_menu.add_command(label='Categories', command=category)
 
+help_menu.add_command(label='About')
+help_menu.add_command(label='Show logs')
+help_menu.add_command(label='How to Use')
+help_menu.add_command(label='Reset Data')
 
 # customize_frame = LabelFrame(root, text='Make Changes', relief=SUNKEN)
 # customize_frame.pack(side='bottom', fill='both', expand=True, padx=2, pady=2)
