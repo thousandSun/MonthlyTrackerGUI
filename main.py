@@ -1,4 +1,5 @@
-""""TODO: `show_frame` logic
+""""TODO: finish `payment window` logic
+TODO: add 'make payment' button
 For testing purposes will not use DataBase yet
 Therefore, whenever there is a `print()` statement
 that will be replaced by the proper write functions"""
@@ -17,13 +18,59 @@ def get_entries() -> list:
     return entries
 
 
+def _get_entry(oid: int):
+    with DatabaseConnection('bills.db') as connection:
+        cursor = connection.cursor()
+        cursor.execute('SELECT * FROM bills WHERE oid=?', (oid,))
+        entry = cursor.fetchone()
+    print(entry)
+    return entry
+
+
 def clear_frame(frame: tk.LabelFrame):
     for widget in frame.winfo_children():
         widget.destroy()
 
 
-def edit(lb: tk.Listbox):
-    pass
+def payment_window(lb: tk.Listbox):
+    selected = lb.curselection()
+    if len(selected) < 1:
+        messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
+        return
+    payment_ui = tk.Toplevel()
+    payment_ui.geometry('400x400')
+    payment_ui.title('Payment')
+    payment_ui.resizable(False, False)
+    oid = selected[0] + 1
+    entry = _get_entry(oid)
+    payment_frame = tk.LabelFrame(payment_ui, text=f'{entry[0].title()}', width=400, height=400)
+    payment_frame.grid(row=0, column=0)
+    payment_frame.grid_propagate(False)
+
+    tk.Label(payment_frame, text='Total $').grid(row=0, column=0, sticky=tk.E)
+    tk.Label(payment_frame, text='Payment $').grid(row=1, column=0, sticky=tk.E)
+    tk.Label(payment_frame, text='Remaining $').grid(row=2, column=0, sticky=tk.E)
+    tk.Label(payment_frame, text='Paid to Date $').grid(row=3, column=0, sticky=tk.E)
+
+    total_entry = tk.Entry(payment_frame)
+    total_entry.grid(row=0, column=1, sticky=tk.W)
+    total_entry.insert(0, f'{entry[1]:,.2f}')
+    total_entry.config(state='readonly')
+
+    payment_entry = tk.Entry(payment_frame)
+    # to get value of entry box to process, .get() returns str, need to convert to float to continue
+    payment_entry.insert(0, f'{entry[2]:,.2f}')
+    payment_entry.grid(row=1, column=1, sticky=tk.W)
+
+    remaining_entry = tk.Entry(payment_frame)
+    remaining_entry.insert(0, f'{entry[3]:,.2f}')
+    remaining_entry.config(state='readonly')
+    remaining_entry.grid(row=2, column=1, sticky=tk.W)
+
+    ptd_entry = tk.Entry(payment_frame)
+    ptd_entry.insert(0, f'{entry[4]:,.2f}')
+    ptd_entry.config(state='readonly')
+    ptd_entry.grid(row=3, column=1, sticky=tk.W)
 
 
 def bills():
@@ -31,60 +78,45 @@ def bills():
     clear_frame(show_frame)
     show_frame['text'] = 'Bills'
     show_frame.grid(row=0, column=0)
-    customize_frame.grid(row=1, column=0, padx=5, pady=5)
     listbox = tk.Listbox(show_frame)
-    listbox.place(x=0, y=0, relwidth=1.0)
+    listbox.config(bd=0)
+    listbox.place(x=0, y=0, relwidth=1.0, relheight=0.8)
 
     for entry in entries:
         name, total, payment, remaining, paid, complete, oid = entry
+        # print(oid)
         if not bool(complete):
             listbox.insert(
                 oid,
-                f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
-                f'Paid to Date: ${paid:,.2f}'
+                f'{name.title()}: Total: ${total:,.2f}    Payment: ${payment:,.2f}    Remaining: ${remaining:,.2f}'
+                f'    Paid to Date: ${paid:,.2f}'
             )
         else:
             listbox.insert(
-                'END',
+                oid,
                 f'{name.capitalize()}: PAID IN FULL'
             )
-    edit_btn = tk.Button(show_frame, text='Edit', command=lambda: edit(listbox))
-    edit_btn.pack(side='bottom')
 
-    # entry_button = tk.Radiobutton(
-    #     show_frame,
-    #     text=f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
-    #          f'Paid to Date: ${paid:,.2f} Complete: {bool(complete)}',
-    #     variable=selection,
-    #     value=oid,
-    #     command=lambda: test_clicked(entry_button['text'])
-    # )
-    # entry_button.place(x=10, y=5)
-    # for i, entry in enumerate(entries[1:]):
-    #     name, total, payment, remaining, paid, complete, oid = entry
-    #     entry_button = tk.Radiobutton(
-    #         show_frame,
-    #         text=f'{name.capitalize()}: Total: ${total:,.2f} Payment: ${payment:,.2f} Remaining: ${remaining:,.2f} '
-    #              f'Paid to Date: ${paid:,.2f} Complete: {bool(complete)}',
-    #         variable=selection,
-    #         value=oid,
-    #         command=lambda: test_clicked(entry_button['text']),
-    #         wraplength=600
-    #     )
-    #     entry_button.place(x=10, y=((i+1)*30))
+    add_btn = tk.Button(show_frame, text='Add', command=lambda: payment_window(listbox), width=20)
+    add_btn.place(x=0, rely=0.9)
+
+    edit_btn = tk.Button(show_frame, text='Edit', command=lambda: payment_window(listbox), width=20)
+    edit_btn.place(x=190, rely=0.9)
+
+    delete_btn = tk.Button(show_frame, text='Delete', command=lambda: payment_window(listbox), width=20)
+    delete_btn.place(x=380, rely=0.9)
 
 
 def category():
     clear_frame(show_frame)
     show_frame['text'] = 'Categories'
     show_frame.grid(row=0, column=0, padx=5, pady=5)
-    customize_frame.grid(row=1, column=0)
 
 
 root = tk.Tk()
 root.option_add('*tearOff', False)
 root.title('Monthly Tracker')
-root.geometry('700x400')
+root.geometry('680x250')
 # root.resizable(False, False)
 
 # creates the main frame for placing all other options
@@ -92,8 +124,6 @@ main_frame = tk.Frame(root)
 main_frame.grid()
 
 show_frame = tk.LabelFrame(main_frame, width=680, height=250)
-customize_frame = tk.LabelFrame(main_frame, width=680, height=140, text='Customize')
-
 
 selection = tk.IntVar()
 
