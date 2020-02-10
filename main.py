@@ -1,12 +1,14 @@
-""""TODO: finish `payment window` logic
-TODO: add 'make payment' button
+""""TODO: Start implementing GUI with the backend BillTracker and CatTracker classes * already imported *
+TODO: may not need `pay()` method in gui file, look to process everything using the appropriate classes
 For testing purposes will not use DataBase yet
 Therefore, whenever there is a `print()` statement
 that will be replaced by the proper write functions"""
 # import logging
 import tkinter as tk
+from billsdb import BillTracker
+from categoriesdb import CatTracker
 from database_connection import DatabaseConnection
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
 
 def get_entries() -> list:
@@ -32,18 +34,29 @@ def clear_frame(frame: tk.LabelFrame):
         widget.destroy()
 
 
+def pay(amount: float, oid: int):
+    if amount is None:
+        messagebox.showwarning(title='Invalid Payment', message='Please enter a valid payment amount')
+        return
+
+    with DatabaseConnection('bills.db') as connection:
+        cursor = connection.cursor()
+
+        cursor.execute()
+
+
 def payment_window(lb: tk.Listbox):
     selected = lb.curselection()
     if len(selected) < 1:
         messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
         return
     payment_ui = tk.Toplevel()
-    payment_ui.geometry('400x400')
+    payment_ui.geometry('300x200')
     payment_ui.title('Payment')
     payment_ui.resizable(False, False)
     oid = selected[0] + 1
     entry = _get_entry(oid)
-    payment_frame = tk.LabelFrame(payment_ui, text=f'{entry[0].title()}', width=400, height=400)
+    payment_frame = tk.LabelFrame(payment_ui, text=f'{entry[0].title()}', width=300, height=200)
     payment_frame.grid(row=0, column=0)
     payment_frame.grid_propagate(False)
 
@@ -71,6 +84,21 @@ def payment_window(lb: tk.Listbox):
     ptd_entry.insert(0, f'{entry[4]:,.2f}')
     ptd_entry.config(state='readonly')
     ptd_entry.grid(row=3, column=1, sticky=tk.W)
+
+    payment_btn = tk.Button(payment_frame,text='Pay',width=25, command=lambda: pay(_to_float(payment_entry.get()), oid))
+    payment_btn.grid(row=4, columnspan=3, sticky=tk.W, pady=(10, 0))
+
+
+def _to_float(variable):
+    variable = variable.split(',')
+    variable = ''.join(variable)
+
+    try:
+        variable = float(variable)
+    except ValueError:
+        return None
+
+    return variable
 
 
 def bills():
@@ -100,7 +128,7 @@ def bills():
     add_btn = tk.Button(show_frame, text='Add', command=lambda: payment_window(listbox), width=20)
     add_btn.place(x=0, rely=0.9)
 
-    edit_btn = tk.Button(show_frame, text='Edit', command=lambda: payment_window(listbox), width=20)
+    edit_btn = tk.Button(show_frame, text='Payment', command=lambda: payment_window(listbox), width=20)
     edit_btn.place(x=190, rely=0.9)
 
     delete_btn = tk.Button(show_frame, text='Delete', command=lambda: payment_window(listbox), width=20)
@@ -142,6 +170,8 @@ help_menu.add_command(label='About')
 help_menu.add_command(label='Show logs')
 help_menu.add_command(label='How to Use')
 help_menu.add_command(label='Reset Data')
+
+bills()
 
 # customize_frame = LabelFrame(root, text='Make Changes', relief=SUNKEN)
 # customize_frame.pack(side='bottom', fill='both', expand=True, padx=2, pady=2)
