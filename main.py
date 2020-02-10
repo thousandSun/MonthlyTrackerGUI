@@ -11,12 +11,15 @@ from database_connection import DatabaseConnection
 from tkinter import messagebox
 
 
+bill_tracker = BillTracker()
+cat_tracker = CatTracker()
+
+
 def get_entries() -> list:
     with DatabaseConnection('bills.db') as connection:
         cursor = connection.cursor()
         cursor.execute('SELECT *, oid FROM bills')
         entries = cursor.fetchall()
-    # print(entries)
     return entries
 
 
@@ -102,7 +105,7 @@ def _to_float(variable):
 
 
 def bills():
-    entries = get_entries()
+    entries = bill_tracker.get_bills()
     clear_frame(show_frame)
     show_frame['text'] = 'Bills'
     show_frame.grid(row=0, column=0)

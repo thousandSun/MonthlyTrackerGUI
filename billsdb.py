@@ -1,7 +1,7 @@
 import logging
-from sqlite3 import IntegrityError, OperationalError
-
 from database_connection import DatabaseConnection
+from sqlite3 import IntegrityError, OperationalError
+from tkinter import messagebox
 
 
 class BillTracker:
@@ -28,28 +28,6 @@ class BillTracker:
             cursor.execute("CREATE TABLE IF NOT EXISTS bills(name text primary key, total real, payment real, "
                            "remaining real, paid real, complete BIT)")
 
-    def show_expenses(self):
-        expenses = self._get_bills()
-
-        for bill in expenses:
-            bill_name = bill['name']
-            if not bool(bill['complete']):
-                bill_total = bill['total']
-                bill_payment = bill['payment']
-                bill_remaining = bill['remaining']
-                bill_paid = bill['paid']
-
-                bill_string = f'| {bill_name.title()}: Total: ${bill_total:,.2f} Payment: ${bill_payment:,.2f} ' \
-                              f'Remaining: ${bill_remaining:,.2f} Paid to Date: ${bill_paid:,.2f} |'
-                print("-" * len(bill_string))
-                print(bill_string)
-                print("-" * len(bill_string))
-            else:
-                bill_string = f'| {bill_name.title()}: PAID IN FULL |'
-                print('-' * len(bill_string))
-                print(bill_string)
-                print('-' * len(bill_string))
-
     def add_bill(self, name, payment, total):
         try:
             with DatabaseConnection(self.bills_db) as connection:
@@ -63,30 +41,33 @@ class BillTracker:
                       f'and monthly payments of ${payment:,.2f}'
             self.logger.info(message)
 
-    def make_payment(self, name, amount):
+    def make_payment(self, oid, amount):
         with DatabaseConnection(self.bills_db) as connection:
             cursor = connection.cursor()
 
             try:
-                cursor.execute('SELECT remaining FROM bills WHERE name=?', (name,))
+                cursor.execute('SELECT remaining FROM bills WHERE oid=?', (oid,))
                 expense_remaining = cursor.fetchone()[0]
-                cursor.execute('SELECT paid FROM bills WHERE name=?', (name,))
+                cursor.execute('SELECT paid FROM bills WHERE oid=?', (oid,))
                 expense_paid = cursor.fetchone()[0]
+                cursor.execute('SELECT name FROM bills WHERE oid-?', (oid,))
+                name = cursor.fetchone()[0]
             except TypeError:
-                print('!! Invalid Query !!')
+                messagebox.showerror()
+                # print('!! Invalid Query !!')
                 return
             else:
                 self._write_payment_log(name, amount)
 
             expense_remaining -= amount
             if expense_remaining <= 0:
-                cursor.execute('UPDATE bills SET complete=? WHERE name=?', (1, name))
+                cursor.execute('UPDATE bills SET complete=? WHERE oid=?', (1, oid))
                 self.logger.info(f'{name.title()} PAID IN FULL')
             else:
                 expense_paid += amount
-                cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (expense_remaining, name))
-                cursor.execute('UPDATE bills SET paid=? WHERE name=?', (expense_paid, name))
-                cursor.execute('UPDATE bills SET payment=? WHERE name=?', (amount, name))
+                cursor.execute('UPDATE bills SET remaining=? WHERE oid=?', (expense_remaining, oid))
+                cursor.execute('UPDATE bills SET paid=? WHERE oid=?', (expense_paid, oid))
+                cursor.execute('UPDATE bills SET payment=? WHERE oid=?', (amount, oid))
 
     def quick_pay(self, name):
         with DatabaseConnection(self.bills_db) as connection:
@@ -165,15 +146,13 @@ Selection: """
 
             cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (bill_remaining, name))
 
-    def _get_bills(self):
-        with DatabaseConnection(self.bills_db) as connection:
-            connection.text_factory = str
+    @staticmethod
+    def get_bills() -> list:
+        with DatabaseConnection('bills.db') as connection:
             cursor = connection.cursor()
-
-            cursor.execute('SELECT * FROM bills')
-            expenses = [{'name': row[0], 'total': row[1], 'payment': row[2],
-                         'remaining': row[3], 'paid': row[4], 'complete': row[5]} for row in cursor.fetchall()]
-        return expenses
+            cursor.execute('SELECT *, oid FROM bills')
+            entries = cursor.fetchall()
+        return entries
 
     def _get_bill(self, name):
         with DatabaseConnection(self.bills_db) as connection:
