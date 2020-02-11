@@ -1,9 +1,7 @@
 """"TODO: Start implementing GUI with the backend BillTracker and CatTracker classes * already imported *
 TODO: may not need `pay()` method in gui file, look to process everything using the appropriate classes
-For testing purposes will not use DataBase yet
-Therefore, whenever there is a `print()` statement
-that will be replaced by the proper write functions"""
-# import logging
+TODO: properly deal with entry if its `PAID IN FULL`
+TODO: look for way to update windows with appropriate information, ask StackOverFlow if needed * can wait till end *"""
 import tkinter as tk
 from billsdb import BillTracker
 from categoriesdb import CatTracker
@@ -37,15 +35,13 @@ def clear_frame(frame: tk.LabelFrame):
         widget.destroy()
 
 
+# intermediary method to deal with invalid GUI payment input before sending amount to BillTracker
 def pay(amount: float, oid: int):
     if amount is None:
         messagebox.showwarning(title='Invalid Payment', message='Please enter a valid payment amount')
         return
 
-    with DatabaseConnection('bills.db') as connection:
-        cursor = connection.cursor()
-
-        cursor.execute()
+    bill_tracker.make_payment(oid, amount)
 
 
 def payment_window(lb: tk.Listbox):
@@ -88,7 +84,10 @@ def payment_window(lb: tk.Listbox):
     ptd_entry.config(state='readonly')
     ptd_entry.grid(row=3, column=1, sticky=tk.W)
 
-    payment_btn = tk.Button(payment_frame,text='Pay',width=25, command=lambda: pay(_to_float(payment_entry.get()), oid))
+    payment_btn = tk.Button(payment_frame,
+                            text='Pay',
+                            width=25,
+                            command=lambda: pay(_to_float(payment_entry.get()), oid))
     payment_btn.grid(row=4, columnspan=3, sticky=tk.W, pady=(10, 0))
 
 

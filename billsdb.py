@@ -53,7 +53,8 @@ class BillTracker:
                 cursor.execute('SELECT name FROM bills WHERE oid-?', (oid,))
                 name = cursor.fetchone()[0]
             except TypeError:
-                messagebox.showerror()
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
                 # print('!! Invalid Query !!')
                 return
             else:
