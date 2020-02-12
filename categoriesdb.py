@@ -1,7 +1,7 @@
 import logging
-from sqlite3 import IntegrityError, OperationalError
-
 from database_connection import DatabaseConnection
+from sqlite3 import IntegrityError, OperationalError
+from tkinter import messagebox
 
 
 class CatTracker:
@@ -29,17 +29,17 @@ class CatTracker:
 
             cursor.execute('CREATE TABLE IF NOT EXISTS categories(name text primary key, total real)')
 
-    def show_categories(self):
-        categories = self._get_categories()
-
-        for category in categories:
-            name = category['category']
-            total = category['total']
-
-            cat_str = f'| {name.title()}: ${total:,.2f} |'
-            print('-'*len(cat_str))
-            print(cat_str)
-            print('-'*len(cat_str))
+    # def show_categories(self):
+    #     categories = self._get_categories()
+    #
+    #     for category in categories:
+    #         name = category['category']
+    #         total = category['total']
+    #
+    #         cat_str = f'| {name.title()}: ${total:,.2f} |'
+    #         print('-'*len(cat_str))
+    #         print(cat_str)
+    #         print('-'*len(cat_str))
 
     def add_category(self, name):
         try:
@@ -53,20 +53,21 @@ class CatTracker:
             message = f'{name.title()} added'
             self.logger.info(message)
 
-    def update_category(self, name, amount):
-        category = self._get_category(name)
-
+    def update_category(self, oid, amount):
         try:
-            total = category['total']
-            total += amount
             with DatabaseConnection(self.categories_database) as connection:
                 cursor = connection.cursor()
-
-                cursor.execute('UPDATE categories SET total=? WHERE name=?', (total, name))
+                cursor.execute('SELECT * FROM categories WHERE oid=?', (oid,))
+                entry = cursor.fetchone()
+                name, total = entry
+                total += amount
+                cursor.execute('UPDATE categories SET total=? WHERE oid=?', (total, oid))
         except TypeError:
-            print('!! Invalid Query !!')
+            messagebox.showerror(title='Invalid Query', message='You have made an invalid Query')
+            return
         else:
             self._write_log(name, amount)
+            return 1
 
     def remove(self, name):
         with DatabaseConnection(self.categories_database) as connection:
@@ -74,29 +75,24 @@ class CatTracker:
 
             cursor.execute('DELETE FROM categories WHERE name=?', (name,))
 
-    def _get_category(self, name):
+    def get_category(self, oid):
         with DatabaseConnection(self.categories_database) as connection:
-            connection.text_factory = str
             cursor = connection.cursor()
             try:
-                cursor.execute('SELECT * FROM categories WHERE name=?', (name,))
+                cursor.execute('SELECT * FROM categories WHERE oid=?', (oid,))
                 category = cursor.fetchone()
-                category = {'category': category[0], 'total': category[1]}
-
                 return category
             except TypeError:
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
                 return None
 
-    def _get_categories(self):
+    def get_categories(self):
         with DatabaseConnection(self.categories_database) as connection:
-            connection.text_factory = str
             cursor = connection.cursor()
-
-            cursor.execute('SELECT * FROM categories')
-
-            categories = [{'category': row[0], 'total': row[1]} for row in cursor.fetchall()]
-
-            return categories
+            cursor.execute('SELECT *, oid FROM categories')
+            categories = cursor.fetchall()
+        return categories
 
     def _write_log(self, name: str, amount: float):
         message = f'Spent ${amount:,.2f} for {name}'

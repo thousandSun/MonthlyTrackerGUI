@@ -35,11 +35,13 @@ class BillTracker:
 
                 cursor.execute('INSERT INTO bills VALUES(?, ?, ?, ?, ?, ?)', (name, total, payment, total, 0, 0))
         except IntegrityError:
-            print(f'!! Bill with name {name.title()} already exists !!')
+            messagebox.showerror(title='Already Exists', message='Another entry with the same name already exists')
+            return None
         else:
             message = f'Added {name.title()} payment with balance of ${total:,.2f} ' \
                       f'and monthly payments of ${payment:,.2f}'
             self.logger.info(message)
+            return 1
 
     def make_payment(self, oid, amount):
         with DatabaseConnection(self.bills_db) as connection:
@@ -55,8 +57,7 @@ class BillTracker:
             except TypeError:
                 messagebox.showerror(title='Invalid Selection',
                                      message='You have made an invalid selection. Please select again')
-                # print('!! Invalid Query !!')
-                return
+                return None
             else:
                 self._write_payment_log(name, amount)
 
@@ -69,83 +70,95 @@ class BillTracker:
                 cursor.execute('UPDATE bills SET remaining=? WHERE oid=?', (expense_remaining, oid))
                 cursor.execute('UPDATE bills SET paid=? WHERE oid=?', (expense_paid, oid))
                 cursor.execute('UPDATE bills SET payment=? WHERE oid=?', (amount, oid))
+        return 1
 
-    def quick_pay(self, name):
+    def quick_pay(self, oid):
         with DatabaseConnection(self.bills_db) as connection:
             cursor = connection.cursor()
 
             try:
-                cursor.execute('SELECT remaining FROM bills WHERE name=?', (name,))  # finish quick pay method
+                cursor.execute('SELECT remaining FROM bills WHERE oid=?', (oid,))  # finish quick pay method
                 bill_remaining = cursor.fetchone()[0]
-                cursor.execute('SELECT payment FROM bills WHERE name=?', (name,))
+                cursor.execute('SELECT payment FROM bills WHERE oid=?', (oid,))
                 bill_payment = cursor.fetchone()[0]
-                cursor.execute('SELECT paid FROM bills WHERE name=?', (name,))
+                cursor.execute('SELECT paid FROM bills WHERE oid=?', (oid,))
                 bill_paid = cursor.fetchone()[0]
+                cursor.execute('SELECT name FROM bills WHERE oid=?', (oid,))
+                name = cursor.fetchone()[0]
             except TypeError:
-                print('!! Invalid Query !!')
-                return
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
+                return None
             else:
                 self._write_payment_log(name, bill_payment)
 
             bill_remaining -= bill_payment
             if bill_remaining <= 0:
-                cursor.execute('UPDATE bills SET complete=? WHERE name=?', (1, name))
+                cursor.execute('UPDATE bills SET complete=? WHERE oid=?', (1, oid))
                 self.logger.info(f'{name.title()} PAID IN FULL')
             else:
                 bill_paid += bill_payment
-                cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (bill_remaining, name))
-                cursor.execute('UPDATE bills SET paid=? WHERE name=?', (bill_paid, name))
+                cursor.execute('UPDATE bills SET remaining=? WHERE oid=?', (bill_remaining, oid))
+                cursor.execute('UPDATE bills SET paid=? WHERE oid=?', (bill_paid, oid))
+        return 1
 
-    def remove(self, name):
+    def remove(self, oid):
         with DatabaseConnection(self.bills_db) as connection:
             cursor = connection.cursor()
 
-            cursor.execute('DELETE FROM bills WHERE name=?', (name,))
-
-    def update_bill(self, name):
-        with DatabaseConnection(self.bills_db) as connection:
-            cursor = connection.cursor()
-
-            update_string = """What property do you want to update
-    --> 1 - name
-    --> 2 - remaining
-    --> 3 - payment
-    --> 0 - back
-Selection: """
-            if self._get_bill(name) is not None:
-                updated_field = ''
-                while updated_field != 0:
-                    try:
-                        updated_field = int(input(update_string))
-                    except ValueError:
-                        updated_field = 99999999
-                    if updated_field == 1:
-                        new_name = input('New name: ').lower()
-                        cursor.execute('UPDATE bills SET name=? WHERE name=?', (new_name, name))
-                    elif updated_field == 2:
-                        new_total = self._to_float(input('Amount spent: $'))
-                        if new_total is not None:
-                            self._add_expense(name, new_total)
-                    elif updated_field == 3:
-                        new_payment = self._to_float(input('New payment: $'))
-                        if new_payment is not None:
-                            cursor.execute('UPDATE bills SET payment=? WHERE name=?', (new_payment, name))
-                        else:
-                            pass
-                    else:
-                        print('!! Invalid Selection !!')
+            try:
+                cursor.execute('DELETE FROM bills WHERE oid=?', (oid,))
+            except TypeError:
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
+                return None
             else:
-                print("!! Invalid Query !!")
+                return 1
 
-    def _add_expense(self, name, amount):
-        bill = self._get_bill(name)
-        bill_remaining = bill['remaining']
-        bill_remaining += amount
-
-        with DatabaseConnection(self.bills_db) as connection:
-            cursor = connection.cursor()
-
-            cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (bill_remaining, name))
+#     def update_bill(self, name):
+#         with DatabaseConnection(self.bills_db) as connection:
+#             cursor = connection.cursor()
+#
+#             update_string = """What property do you want to update
+#     --> 1 - name
+#     --> 2 - remaining
+#     --> 3 - payment
+#     --> 0 - back
+# Selection: """
+#             if self._get_bill(name) is not None:
+#                 updated_field = ''
+#                 while updated_field != 0:
+#                     try:
+#                         updated_field = int(input(update_string))
+#                     except ValueError:
+#                         updated_field = 99999999
+#                     if updated_field == 1:
+#                         new_name = input('New name: ').lower()
+#                         cursor.execute('UPDATE bills SET name=? WHERE name=?', (new_name, name))
+#                     elif updated_field == 2:
+#                         new_total = self._to_float(input('Amount spent: $'))
+#                         if new_total is not None:
+#                             self._add_expense(name, new_total)
+#                     elif updated_field == 3:
+#                         new_payment = self._to_float(input('New payment: $'))
+#                         if new_payment is not None:
+#                             cursor.execute('UPDATE bills SET payment=? WHERE name=?', (new_payment, name))
+#                         else:
+#                             pass
+#                     else:
+#                         print('!! Invalid Selection !!')
+#             else:
+#                 print("!! Invalid Query !!")
+#
+#     def _add_expense(self, name, amount):
+#         bill = self._get_bill(name)
+#         bill_remaining = bill['remaining']
+#         bill_remaining += amount
+#
+#         with DatabaseConnection(self.bills_db) as connection:
+#             cursor = connection.cursor()
+#
+#             cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (bill_remaining, name))
 
     @staticmethod
     def get_bills() -> list:
@@ -155,17 +168,17 @@ Selection: """
             entries = cursor.fetchall()
         return entries
 
-    def _get_bill(self, name):
+    def get_bill(self, oid):
         with DatabaseConnection(self.bills_db) as connection:
             connection.text_factory = str
             cursor = connection.cursor()
 
             try:
-                cursor.execute('SELECT * FROM bills WHERE name=?', (name,))
+                cursor.execute('SELECT * FROM bills WHERE oid=?', (oid,))
                 expense = cursor.fetchone()
-                expense = {'name': expense[0], 'total': expense[1], 'payment': expense[2],
-                           'remaining': expense[3], 'paid': expense[4], 'complete': expense[5]}
             except TypeError:
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
                 return None
 
         return expense
