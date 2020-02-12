@@ -115,51 +115,6 @@ class BillTracker:
             else:
                 return 1
 
-#     def update_bill(self, name):
-#         with DatabaseConnection(self.bills_db) as connection:
-#             cursor = connection.cursor()
-#
-#             update_string = """What property do you want to update
-#     --> 1 - name
-#     --> 2 - remaining
-#     --> 3 - payment
-#     --> 0 - back
-# Selection: """
-#             if self._get_bill(name) is not None:
-#                 updated_field = ''
-#                 while updated_field != 0:
-#                     try:
-#                         updated_field = int(input(update_string))
-#                     except ValueError:
-#                         updated_field = 99999999
-#                     if updated_field == 1:
-#                         new_name = input('New name: ').lower()
-#                         cursor.execute('UPDATE bills SET name=? WHERE name=?', (new_name, name))
-#                     elif updated_field == 2:
-#                         new_total = self._to_float(input('Amount spent: $'))
-#                         if new_total is not None:
-#                             self._add_expense(name, new_total)
-#                     elif updated_field == 3:
-#                         new_payment = self._to_float(input('New payment: $'))
-#                         if new_payment is not None:
-#                             cursor.execute('UPDATE bills SET payment=? WHERE name=?', (new_payment, name))
-#                         else:
-#                             pass
-#                     else:
-#                         print('!! Invalid Selection !!')
-#             else:
-#                 print("!! Invalid Query !!")
-#
-#     def _add_expense(self, name, amount):
-#         bill = self._get_bill(name)
-#         bill_remaining = bill['remaining']
-#         bill_remaining += amount
-#
-#         with DatabaseConnection(self.bills_db) as connection:
-#             cursor = connection.cursor()
-#
-#             cursor.execute('UPDATE bills SET remaining=? WHERE name=?', (bill_remaining, name))
-
     @staticmethod
     def get_bills() -> list:
         with DatabaseConnection('bills.db') as connection:

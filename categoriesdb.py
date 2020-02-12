@@ -29,18 +29,6 @@ class CatTracker:
 
             cursor.execute('CREATE TABLE IF NOT EXISTS categories(name text primary key, total real)')
 
-    # def show_categories(self):
-    #     categories = self._get_categories()
-    #
-    #     for category in categories:
-    #         name = category['category']
-    #         total = category['total']
-    #
-    #         cat_str = f'| {name.title()}: ${total:,.2f} |'
-    #         print('-'*len(cat_str))
-    #         print(cat_str)
-    #         print('-'*len(cat_str))
-
     def add_category(self, name):
         try:
             with DatabaseConnection(self.categories_database) as connection:
@@ -48,10 +36,12 @@ class CatTracker:
 
                 cursor.execute('INSERT INTO categories VALUES(?, ?)', (name, 0))
         except IntegrityError:
-            print(f'!! Category with name {name.title()} already exists !!')
+            messagebox.showerror(title='Already Exists', message='Another entry with the same name already exists')
+            return False
         else:
             message = f'{name.title()} added'
             self.logger.info(message)
+            return 1
 
     def update_category(self, oid, amount):
         try:
@@ -64,16 +54,22 @@ class CatTracker:
                 cursor.execute('UPDATE categories SET total=? WHERE oid=?', (total, oid))
         except TypeError:
             messagebox.showerror(title='Invalid Query', message='You have made an invalid Query')
-            return
+            return False
         else:
             self._write_log(name, amount)
             return 1
 
-    def remove(self, name):
+    def remove(self, oid):
         with DatabaseConnection(self.categories_database) as connection:
             cursor = connection.cursor()
-
-            cursor.execute('DELETE FROM categories WHERE name=?', (name,))
+            try:
+                cursor.execute('DELETE FROM categories WHERE oid=?', (oid,))
+            except TypeError:
+                messagebox.showerror(title='Invalid Selection',
+                                     message='You have made an invalid selection. Please select again')
+                return False
+            else:
+                return 1
 
     def get_category(self, oid):
         with DatabaseConnection(self.categories_database) as connection:

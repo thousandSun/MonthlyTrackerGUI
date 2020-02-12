@@ -1,7 +1,5 @@
 """"TODO: Start implementing GUI with the backend BillTracker and CatTracker classes * already imported *
 TODO: properly deal with entry if its `PAID IN FULL`
-TODO: finish `cat_add()` to add more categories
-TODO: make a remove button for categories
 TODO: make the `help` cascade menu options work
 TODO: look for way to update windows with appropriate information, ask StackOverFlow if needed * can wait till end *"""
 import tkinter as tk
@@ -11,9 +9,7 @@ from database_connection import DatabaseConnection
 from tkinter import messagebox
 
 bill_tracker = BillTracker()
-bill_tracker.create_table()
 cat_tracker = CatTracker()
-cat_tracker.create_table()
 
 
 def get_entries() -> list:
@@ -24,7 +20,7 @@ def get_entries() -> list:
     return entries
 
 
-def _get_entry(oid: int):
+def _get_entry(oid: int) -> tuple:
     with DatabaseConnection('bills.db') as connection:
         cursor = connection.cursor()
         cursor.execute('SELECT * FROM bills WHERE oid=?', (oid,))
@@ -124,9 +120,11 @@ def delete_window(lb: tk.Listbox):
         return
 
     oid = selected[0] + 1
-    success = bill_tracker.remove(oid)
-    if success:
-        messagebox.showinfo(title='Success', message='Successfully removed entry')
+    confirm = messagebox.askokcancel(title='Confirm Delete', message='Proceed with deletion?')
+    if confirm:
+        success = bill_tracker.remove(oid)
+        if success:
+            messagebox.showinfo(title='Success', message='Successfully removed entry')
 
 
 def add(name: str, total: float, payment: float):
@@ -154,6 +152,7 @@ def add_window():
     add_ui = tk.Toplevel()
     add_ui.title('Add Entry')
     add_ui.geometry('400x400')
+    add_ui.resizable(False, False)
 
     add_frame = tk.LabelFrame(add_ui, text='Add', width=400, height=400)
     add_frame.grid(row=0, column=0)
@@ -195,6 +194,7 @@ def quick(lb: tk.Listbox):
 
 
 def bills():
+    bill_tracker.create_table()
     entries = bill_tracker.get_bills()
     clear_frame(show_frame)
     show_frame['text'] = 'Bills'
@@ -205,7 +205,6 @@ def bills():
 
     for entry in entries:
         name, total, payment, remaining, paid, complete, oid = entry
-        # print(oid)
         if not bool(complete):
             listbox.insert(
                 oid,
@@ -219,16 +218,16 @@ def bills():
             )
 
     add_btn = tk.Button(show_frame, text='Add', command=add_window, width=20)
-    add_btn.place(x=0, rely=0.9)
+    add_btn.place(x=0, rely=0.88)
 
     payment_btn = tk.Button(show_frame, text='Payment', command=lambda: payment_window(listbox), width=20)
-    payment_btn.place(x=190, rely=0.9)
-
-    delete_btn = tk.Button(show_frame, text='Delete', command=lambda: delete_window(listbox), width=20)
-    delete_btn.place(x=380, rely=0.9)
+    payment_btn.place(x=190, rely=0.88)
 
     quick_pay_btn = tk.Button(show_frame, text='Quick Pay', command=lambda: quick(listbox), width=20)
-    quick_pay_btn.place(x=570, rely=0.9)
+    quick_pay_btn.place(x=380, rely=0.88)
+
+    delete_btn = tk.Button(show_frame, text='Delete', command=lambda: delete_window(listbox), width=20)
+    delete_btn.place(x=570, rely=0.88)
 
 
 def spend(amount: float, oid: int):
@@ -280,11 +279,52 @@ def spending_window(lb: tk.Listbox):
         spend_btn.grid(row=2, columnspan=2, sticky=tk.W, pady=(10, 0))
 
 
+def add_cat(name: str):
+    confirm = messagebox.askokcancel(title='Adding', message=f'Adding {name.title()}')
+    if confirm:
+        success = cat_tracker.add_category(name)
+        if success:
+            messagebox.showinfo(title='Added', message=f'Successfully added {name.title()}')
+            cat_add_ui.destroy()
+            return
+
+
 def cat_add():
-    pass
+    global cat_add_ui
+    cat_add_ui = tk.Toplevel()
+    cat_add_ui.title('Add Category')
+    cat_add_ui.geometry('300x200')
+    cat_add_ui.resizable(False, False)
+
+    add_frame = tk.LabelFrame(cat_add_ui, text='Add', width=300, height=200)
+    add_frame.grid(row=0, column=0)
+    add_frame.grid_propagate(False)
+
+    tk.Label(add_frame, text='Name').grid(row=0, column=0, sticky=tk.E)
+
+    name_entry = tk.Entry(add_frame)
+    name_entry.grid(row=0, column=1, sticky=tk.W)
+
+    add_btn = tk.Button(add_frame, text='Add', command=lambda: add_cat(name_entry.get()), width=25)
+    add_btn.grid(row=1, columnspan=2, sticky=tk.W, pady=(10, 0))
+
+
+def remove_cat(lb: tk.Listbox):
+    selected = lb.curselection()
+    if len(selected) < 1:
+        messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
+        return
+
+    oid = selected[0] + 1
+    confirm = messagebox.askokcancel(title='Confirm Delete', message='Proceed with deletion?')
+    if confirm:
+        success = cat_tracker.remove(oid)
+        if success:
+            messagebox.showinfo(title='Success', message='Successfully removed entry')
 
 
 def category():
+    cat_tracker.create_table()
     entries = cat_tracker.get_categories()
     clear_frame(show_frame)
     show_frame['text'] = 'Categories'
@@ -297,25 +337,28 @@ def category():
         name, total, oid = entry
         listbox.insert(oid, f'{name.title()}: ${total:,.2f}')
 
-    spent_btn = tk.Button(show_frame, text='Spend', command=lambda: spending_window(listbox), width=20)
-    spent_btn.place(x=0, rely=0.88)
+    add_btn = tk.Button(show_frame, text='Add', command=cat_add, width=20)
+    add_btn.place(x=0, rely=0.88)
 
-    add_btn = tk.Button(show_frame, text='Add', command=cat_add)
+    spent_btn = tk.Button(show_frame, text='Spend', command=lambda: spending_window(listbox), width=20)
+    spent_btn.place(x=190, rely=0.88)
+
+    remove_btn = tk.Button(show_frame, text='Delete', command=lambda: remove_cat(listbox), width=20)
+    remove_btn.place(x=380, rely=0.88)
 
 
 root = tk.Tk()
 root.option_add('*tearOff', False)
 root.title('Monthly Tracker')
 root.geometry('760x250')
-# root.resizable(False, False)
+root.resizable(False, False)
 
 # creates the main frame for placing all other options
 main_frame = tk.Frame(root)
 main_frame.grid()
 
+# frame for placing appropriate labels and entries
 show_frame = tk.LabelFrame(main_frame, width=760, height=250)
-
-selection = tk.IntVar()
 
 # creates a menu bar
 menubar = tk.Menu(root)
@@ -331,7 +374,7 @@ mode_menu.add_command(label='Categories', command=category)
 help_menu.add_command(label='About')
 help_menu.add_command(label='Show logs')
 help_menu.add_command(label='How to Use')
-help_menu.add_command(label='Reset Data')
+help_menu.add_command(label='Reset Data', command=lambda: (BillTracker.reset(), CatTracker.reset()))
 
 bills()
 
