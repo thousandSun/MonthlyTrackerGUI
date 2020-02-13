@@ -52,7 +52,7 @@ class BillTracker:
                 expense_remaining = cursor.fetchone()[0]
                 cursor.execute('SELECT paid FROM bills WHERE oid=?', (oid,))
                 expense_paid = cursor.fetchone()[0]
-                cursor.execute('SELECT name FROM bills WHERE oid-?', (oid,))
+                cursor.execute('SELECT name FROM bills WHERE oid=?', (oid,))
                 name = cursor.fetchone()[0]
             except TypeError:
                 messagebox.showerror(title='Invalid Selection',
@@ -155,11 +155,18 @@ class BillTracker:
         self.logger.info(log_message)
 
     @staticmethod
+    def get_logs() -> [[str, str]]:
+        with open('log.log') as f:
+            logs = f.readlines()
+        logs = [log.strip() for log in logs if 'Payment' in log]
+        bills_log = [log.split(' Payment: ') for log in logs]  # [['date time', message]]
+        return bills_log
+
+    @staticmethod
     def reset():
         try:
             with DatabaseConnection('bills.db') as connection:
                 cursor = connection.cursor()
-
                 cursor.execute('DROP TABLE bills')
         except OperationalError:
             pass

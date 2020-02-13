@@ -95,13 +95,18 @@ class CatTracker:
         self.logger.info(message)
 
     @staticmethod
+    def get_logs():
+        with open('log.log') as f:
+            logs = f.readlines()
+        logs = [log.strip() for log in logs if 'Category' in log]
+        cat_logs = [log.split(' Category: ') for log in logs]
+        return cat_logs
+
+    @staticmethod
     def reset():
         try:
             with DatabaseConnection('categories.db') as connection:
                 cursor = connection.cursor()
-
                 cursor.execute('DROP TABLE categories')
         except OperationalError:
             pass
-
-        open('log.log', 'w').close()

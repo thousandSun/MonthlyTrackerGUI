@@ -137,7 +137,7 @@ def add(name: str, total: float, payment: float):
         message=f'Adding {name.title()} with total of ${total:,.2f} with payments of ${payment:,.2f}'
     )
     if confirm:
-        pass_fail = bill_tracker.add_bill(name, total, payment)
+        pass_fail = bill_tracker.add_bill(name, payment, total)
         if pass_fail is not None:
             messagebox.showinfo(
                 title='Added Successfully',
@@ -347,6 +347,58 @@ def category():
     remove_btn.place(x=380, rely=0.88)
 
 
+def show_logs():
+    bills_logs = BillTracker.get_logs()
+    cat_logs = CatTracker.get_logs()
+
+    log_ui = tk.Toplevel()
+    log_ui.title('Logs')
+    log_ui.geometry('700x400')
+    log_ui.resizable(False, False)
+
+    bill_log_frame = tk.LabelFrame(log_ui, text='Bills Logs', width=700, height=200)
+    bill_log_frame.grid(row=0, column=0)
+    bill_log_frame.grid_propagate(False)
+
+    cat_log_frame = tk.LabelFrame(log_ui, text='Category Logs', width=700, height=200)
+    cat_log_frame.grid(row=1, column=0)
+    cat_log_frame.grid_propagate(False)
+
+    h_scrollbar = tk.Scrollbar(bill_log_frame, orient=tk.HORIZONTAL)
+    h_scrollbar.grid(row=1, colum=0)
+    v_scrollbar = tk.Scrollbar()
+
+
+def reset_bills():
+    confirm = get_reset_confirm()
+    if confirm == 'ok':
+        BillTracker.reset()
+
+
+def reset_cat():
+    confirm = get_reset_confirm()
+    if confirm == 'ok':
+        CatTracker.reset()
+
+
+def reset_logs():
+    confirm = get_reset_confirm()
+    if confirm == 'ok':
+        open('log.log', 'w').close()
+
+
+def reset_all():
+    if get_reset_confirm() == 'ok':
+        BillTracker.reset()
+        CatTracker.reset()
+        open('log.log', 'w').close()
+
+
+def get_reset_confirm():
+    return messagebox.showwarning(title='!!! Reset Data !!!',
+                                  message='YOU ARE ABOUT TO RESET DATA\nTHIS ACTION IS IRREVERSIBLE')
+
+
 root = tk.Tk()
 root.option_add('*tearOff', False)
 root.title('Monthly Tracker')
@@ -365,6 +417,7 @@ menubar = tk.Menu(root)
 root.config(menu=menubar)
 mode_menu = tk.Menu(menubar)
 help_menu = tk.Menu(menubar)
+reset_menu = tk.Menu(help_menu)
 menubar.add_cascade(label='Mode', menu=mode_menu)
 menubar.add_cascade(label='Help', menu=help_menu)
 
@@ -374,7 +427,11 @@ mode_menu.add_command(label='Categories', command=category)
 help_menu.add_command(label='About')
 help_menu.add_command(label='Show logs')
 help_menu.add_command(label='How to Use')
-help_menu.add_command(label='Reset Data', command=lambda: (BillTracker.reset(), CatTracker.reset()))
+help_menu.add_cascade(label='Reset Data', menu=reset_menu)
+reset_menu.add_command(label='Bills', command=reset_bills)
+reset_menu.add_command(label='Categories', command=reset_cat)
+reset_menu.add_command(label='Logs', command=reset_logs)
+reset_menu.add_command(label='All', command=reset_all)
 
 bills()
 
