@@ -1,11 +1,8 @@
-""""TODO: Start implementing GUI with the backend BillTracker and CatTracker classes * already imported *
-TODO: properly deal with entry if its `PAID IN FULL`
-TODO: make the `help` cascade menu options work
+""""TODO: properly deal with entry if its `PAID IN FULL`
 TODO: look for way to update windows with appropriate information, ask StackOverFlow if needed * can wait till end *"""
 import tkinter as tk
 from billsdb import BillTracker
 from categoriesdb import CatTracker
-from database_connection import DatabaseConnection
 from tkinter import messagebox
 from tzlocal import get_localzone
 
@@ -14,43 +11,94 @@ cat_tracker = CatTracker()
 tz = get_localzone()
 
 
-def get_entries() -> list:
-    with DatabaseConnection('bills.db') as connection:
-        cursor = connection.cursor()
-        cursor.execute('SELECT *, oid FROM bills')
-        entries = cursor.fetchall()
-    return entries
+def bills():
+    bill_tracker.create_table()
+    entries = bill_tracker.get_bills()
+    _clear_frame(show_frame)
+    show_frame['text'] = 'Bills'
+    show_frame.grid(row=0, column=0)
+    listbox = tk.Listbox(show_frame)
+    listbox.config(bd=0)
+    listbox.place(x=0, y=0, relwidth=1.0, relheight=0.8)
+
+    for entry in entries:
+        name, total, payment, remaining, paid, complete, oid = entry
+        if not bool(complete):
+            listbox.insert(
+                oid,
+                f'{name.title()}: Total: ${total:,.2f}    Payment: ${payment:,.2f}    Remaining: ${remaining:,.2f}'
+                f'    Paid to Date: ${paid:,.2f}'
+            )
+        else:
+            listbox.insert(
+                oid,
+                f'{name.capitalize()}: PAID IN FULL'
+            )
+
+    add_btn = tk.Button(show_frame, text='Add', command=add_window, width=20)
+    add_btn.place(x=0, rely=0.88)
+
+    payment_btn = tk.Button(show_frame, text='Payment', command=lambda: payment_window(listbox), width=20)
+    payment_btn.place(x=190, rely=0.88)
+
+    quick_pay_btn = tk.Button(show_frame, text='Quick Pay', command=lambda: quick(listbox), width=20)
+    quick_pay_btn.place(x=380, rely=0.88)
+
+    delete_btn = tk.Button(show_frame, text='Delete', command=lambda: delete_window(listbox), width=20)
+    delete_btn.place(x=570, rely=0.88)
 
 
-def _get_entry(oid: int) -> tuple:
-    with DatabaseConnection('bills.db') as connection:
-        cursor = connection.cursor()
-        cursor.execute('SELECT * FROM bills WHERE oid=?', (oid,))
-        entry = cursor.fetchone()
-    return entry
+def add_window():
+    global add_ui
+    add_ui = tk.Toplevel()
+    add_ui.title('Add Entry')
+    add_ui.geometry('400x400')
+    add_ui.resizable(False, False)
+
+    add_frame = tk.LabelFrame(add_ui, text='Add', width=400, height=400)
+    add_frame.grid(row=0, column=0)
+    add_frame.grid_propagate(False)
+
+    tk.Label(add_frame, text='Name:').grid(row=0, column=0, sticky=tk.E)
+    tk.Label(add_frame, text='Total: $').grid(row=1, column=0, sticky=tk.E)
+    tk.Label(add_frame, text='Payment: $').grid(row=2, column=0, sticky=tk.E)
+
+    name = tk.StringVar()
+    name_entry = tk.Entry(add_frame, textvariable=name)
+    name_entry.grid(row=0, column=1, sticky=tk.W)
+
+    total_entry = tk.Entry(add_frame)
+    total_entry.grid(row=1, column=1, sticky=tk.W)
+
+    payment_entry = tk.Entry(add_frame)
+    payment_entry.grid(row=2, column=1, sticky=tk.W)
+
+    add_btn = tk.Button(
+        add_frame,
+        text='Add',
+        width=20,
+        command=lambda: add(name.get(), _to_float(total_entry.get()), _to_float(payment_entry.get()))
+    )
+    add_btn.grid(row=3, columnspan=2, sticky=tk.W, pady=(10, 0))
 
 
-def clear_frame(frame: tk.LabelFrame):
-    for widget in frame.winfo_children():
-        widget.destroy()
-
-
-# intermediary method to deal with invalid GUI payment input before sending amount to BillTracker
-def pay(amount: float, oid: int):
-    if amount is None:
-        messagebox.showwarning(title='Invalid Payment', message='Please enter a valid payment amount')
+def add(name: str, total: float, payment: float):
+    if total is None or payment is None:
+        messagebox.showerror(title='Invalid Entries', message='Invalid entries, try again')
         return
 
     confirm = messagebox.askokcancel(
-        title='Confirm Payment',
-        message=f'Making payment of amount: ${amount:,.2f}'
+        title='Confirm Entry',
+        message=f'Adding {name.title()} with total of ${total:,.2f} with payments of ${payment:,.2f}'
     )
     if confirm:
-        pass_fail = bill_tracker.make_payment(oid, amount)
+        pass_fail = bill_tracker.add_bill(name, payment, total)
         if pass_fail is not None:
-            messagebox.showinfo(title='Payment Made',
-                                message=f'Your payment of amount ${amount:,.2f} made successfully')
-            payment_ui.destroy()
+            messagebox.showinfo(
+                title='Added Successfully',
+                message=f'Added {name.title()} with total of ${total:,.2f} with payments of ${payment:,.2f}'
+            )
+            add_ui.destroy()
             return
 
 
@@ -103,16 +151,34 @@ def payment_window(lb: tk.Listbox):
         payment_btn.grid(row=4, columnspan=3, sticky=tk.W, pady=(10, 0))
 
 
-def _to_float(variable):
-    variable = variable.split(',')
-    variable = ''.join(variable)
+# intermediary method to deal with invalid GUI payment input before sending amount to BillTracker
+def pay(amount: float, oid: int):
+    if amount is None:
+        messagebox.showwarning(title='Invalid Payment', message='Please enter a valid payment amount')
+        return
 
-    try:
-        variable = float(variable)
-    except ValueError:
-        return None
+    confirm = messagebox.askokcancel(
+        title='Confirm Payment',
+        message=f'Making payment of amount: ${amount:,.2f}'
+    )
+    if confirm:
+        pass_fail = bill_tracker.make_payment(oid, amount)
+        if pass_fail is not None:
+            messagebox.showinfo(title='Payment Made',
+                                message=f'Your payment of amount ${amount:,.2f} made successfully')
+            payment_ui.destroy()
+            return
 
-    return variable
+
+def quick(lb: tk.Listbox):
+    selected = lb.curselection()
+    if len(selected) < 1:
+        messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
+        return
+    oid = selected[0] + 1
+    success = bill_tracker.quick_pay(oid)
+    if success is not None:
+        messagebox.showinfo(title='Success', message='Quick Pay Succeeded')
 
 
 def delete_window(lb: tk.Listbox):
@@ -129,120 +195,57 @@ def delete_window(lb: tk.Listbox):
             messagebox.showinfo(title='Success', message='Successfully removed entry')
 
 
-def add(name: str, total: float, payment: float):
-    if total is None or payment is None:
-        messagebox.showerror(title='Invalid Entries', message='Invalid entries, try again')
-        return
-
-    confirm = messagebox.askokcancel(
-        title='Confirm Entry',
-        message=f'Adding {name.title()} with total of ${total:,.2f} with payments of ${payment:,.2f}'
-    )
-    if confirm:
-        pass_fail = bill_tracker.add_bill(name, payment, total)
-        if pass_fail is not None:
-            messagebox.showinfo(
-                title='Added Successfully',
-                message=f'Added {name.title()} with total of ${total:,.2f} with payments of ${payment:,.2f}'
-            )
-            add_ui.destroy()
-            return
-
-
-def add_window():
-    global add_ui
-    add_ui = tk.Toplevel()
-    add_ui.title('Add Entry')
-    add_ui.geometry('400x400')
-    add_ui.resizable(False, False)
-
-    add_frame = tk.LabelFrame(add_ui, text='Add', width=400, height=400)
-    add_frame.grid(row=0, column=0)
-    add_frame.grid_propagate(False)
-
-    tk.Label(add_frame, text='Name:').grid(row=0, column=0, sticky=tk.E)
-    tk.Label(add_frame, text='Total: $').grid(row=1, column=0, sticky=tk.E)
-    tk.Label(add_frame, text='Payment: $').grid(row=2, column=0, sticky=tk.E)
-
-    name = tk.StringVar()
-    name_entry = tk.Entry(add_frame, textvariable=name)
-    name_entry.grid(row=0, column=1, sticky=tk.W)
-
-    total_entry = tk.Entry(add_frame)
-    total_entry.grid(row=1, column=1, sticky=tk.W)
-
-    payment_entry = tk.Entry(add_frame)
-    payment_entry.grid(row=2, column=1, sticky=tk.W)
-
-    add_btn = tk.Button(
-        add_frame,
-        text='Add',
-        width=20,
-        command=lambda: add(name.get(), _to_float(total_entry.get()), _to_float(payment_entry.get()))
-    )
-    add_btn.grid(row=3, columnspan=2, sticky=tk.W, pady=(10, 0))
-
-
-def quick(lb: tk.Listbox):
-    selected = lb.curselection()
-    if len(selected) < 1:
-        messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
-        return
-
-    oid = selected[0] + 1
-    success = bill_tracker.quick_pay(oid)
-    if success is not None:
-        messagebox.showinfo(title='Success', message='Quick Pay Succeeded')
-
-
-def bills():
-    bill_tracker.create_table()
-    entries = bill_tracker.get_bills()
-    clear_frame(show_frame)
-    show_frame['text'] = 'Bills'
-    show_frame.grid(row=0, column=0)
+def category():
+    cat_tracker.create_table()
+    entries = cat_tracker.get_categories()
+    _clear_frame(show_frame)
+    show_frame['text'] = 'Categories'
+    show_frame.grid(row=0, column=0, padx=5, pady=5)
     listbox = tk.Listbox(show_frame)
     listbox.config(bd=0)
     listbox.place(x=0, y=0, relwidth=1.0, relheight=0.8)
 
     for entry in entries:
-        name, total, payment, remaining, paid, complete, oid = entry
-        if not bool(complete):
-            listbox.insert(
-                oid,
-                f'{name.title()}: Total: ${total:,.2f}    Payment: ${payment:,.2f}    Remaining: ${remaining:,.2f}'
-                f'    Paid to Date: ${paid:,.2f}'
-            )
-        else:
-            listbox.insert(
-                oid,
-                f'{name.capitalize()}: PAID IN FULL'
-            )
+        name, total, oid = entry
+        listbox.insert(oid, f'{name.title()}: ${total:,.2f}')
 
-    add_btn = tk.Button(show_frame, text='Add', command=add_window, width=20)
+    add_btn = tk.Button(show_frame, text='Add', command=cat_add, width=20)
     add_btn.place(x=0, rely=0.88)
 
-    payment_btn = tk.Button(show_frame, text='Payment', command=lambda: payment_window(listbox), width=20)
-    payment_btn.place(x=190, rely=0.88)
+    spent_btn = tk.Button(show_frame, text='Spend', command=lambda: spending_window(listbox), width=20)
+    spent_btn.place(x=190, rely=0.88)
 
-    quick_pay_btn = tk.Button(show_frame, text='Quick Pay', command=lambda: quick(listbox), width=20)
-    quick_pay_btn.place(x=380, rely=0.88)
-
-    delete_btn = tk.Button(show_frame, text='Delete', command=lambda: delete_window(listbox), width=20)
-    delete_btn.place(x=570, rely=0.88)
+    remove_btn = tk.Button(show_frame, text='Delete', command=lambda: remove_cat(listbox), width=20)
+    remove_btn.place(x=380, rely=0.88)
 
 
-def spend(amount: float, oid: int):
-    if amount is None:
-        messagebox.showerror(title='Invalid Amount', message='Invalid spending amount')
-        return
+def cat_add():
+    global cat_add_ui
+    cat_add_ui = tk.Toplevel()
+    cat_add_ui.title('Add Category')
+    cat_add_ui.geometry('300x200')
+    cat_add_ui.resizable(False, False)
 
-    confirm = messagebox.askokcancel(title='Confirm Spending', message=f'Spending ${amount:,.2f}')
+    add_frame = tk.LabelFrame(cat_add_ui, text='Add', width=300, height=200)
+    add_frame.grid(row=0, column=0)
+    add_frame.grid_propagate(False)
+
+    tk.Label(add_frame, text='Name').grid(row=0, column=0, sticky=tk.E)
+
+    name_entry = tk.Entry(add_frame)
+    name_entry.grid(row=0, column=1, sticky=tk.W)
+
+    add_btn = tk.Button(add_frame, text='Add', command=lambda: add_cat(name_entry.get()), width=25)
+    add_btn.grid(row=1, columnspan=2, sticky=tk.W, pady=(10, 0))
+
+
+def add_cat(name: str):
+    confirm = messagebox.askokcancel(title='Adding', message=f'Adding {name.title()}')
     if confirm:
-        success = cat_tracker.update_category(oid, amount)
+        success = cat_tracker.add_category(name)
         if success:
-            messagebox.showinfo(title='Success', message=f'Spent ${amount:,.2f}')
-            spending_ui.destroy()
+            messagebox.showinfo(title='Added', message=f'Successfully added {name.title()}')
+            cat_add_ui.destroy()
             return
 
 
@@ -281,34 +284,18 @@ def spending_window(lb: tk.Listbox):
         spend_btn.grid(row=2, columnspan=2, sticky=tk.W, pady=(10, 0))
 
 
-def add_cat(name: str):
-    confirm = messagebox.askokcancel(title='Adding', message=f'Adding {name.title()}')
+def spend(amount: float, oid: int):
+    if amount is None:
+        messagebox.showerror(title='Invalid Amount', message='Invalid spending amount')
+        return
+
+    confirm = messagebox.askokcancel(title='Confirm Spending', message=f'Spending ${amount:,.2f}')
     if confirm:
-        success = cat_tracker.add_category(name)
+        success = cat_tracker.update_category(oid, amount)
         if success:
-            messagebox.showinfo(title='Added', message=f'Successfully added {name.title()}')
-            cat_add_ui.destroy()
+            messagebox.showinfo(title='Success', message=f'Spent ${amount:,.2f}')
+            spending_ui.destroy()
             return
-
-
-def cat_add():
-    global cat_add_ui
-    cat_add_ui = tk.Toplevel()
-    cat_add_ui.title('Add Category')
-    cat_add_ui.geometry('300x200')
-    cat_add_ui.resizable(False, False)
-
-    add_frame = tk.LabelFrame(cat_add_ui, text='Add', width=300, height=200)
-    add_frame.grid(row=0, column=0)
-    add_frame.grid_propagate(False)
-
-    tk.Label(add_frame, text='Name').grid(row=0, column=0, sticky=tk.E)
-
-    name_entry = tk.Entry(add_frame)
-    name_entry.grid(row=0, column=1, sticky=tk.W)
-
-    add_btn = tk.Button(add_frame, text='Add', command=lambda: add_cat(name_entry.get()), width=25)
-    add_btn.grid(row=1, columnspan=2, sticky=tk.W, pady=(10, 0))
 
 
 def remove_cat(lb: tk.Listbox):
@@ -325,28 +312,23 @@ def remove_cat(lb: tk.Listbox):
             messagebox.showinfo(title='Success', message='Successfully removed entry')
 
 
-def category():
-    cat_tracker.create_table()
-    entries = cat_tracker.get_categories()
-    clear_frame(show_frame)
-    show_frame['text'] = 'Categories'
-    show_frame.grid(row=0, column=0, padx=5, pady=5)
-    listbox = tk.Listbox(show_frame)
-    listbox.config(bd=0)
-    listbox.place(x=0, y=0, relwidth=1.0, relheight=0.8)
+def about():
+    messagebox.showinfo(title='About',
+                        message='This application is still a work in progress.\n'
+                                'It is a means to help you become more expense conscious '
+                                'and help manage spending habits. There are some subtle psychological '
+                                'constructs to help achieve that goal\n'
+                                '\n!!! DOES NOT COLLECT ANY FINANCIAL INSTITUTION INFORMATION !!!')
 
-    for entry in entries:
-        name, total, oid = entry
-        listbox.insert(oid, f'{name.title()}: ${total:,.2f}')
 
-    add_btn = tk.Button(show_frame, text='Add', command=cat_add, width=20)
-    add_btn.place(x=0, rely=0.88)
-
-    spent_btn = tk.Button(show_frame, text='Spend', command=lambda: spending_window(listbox), width=20)
-    spent_btn.place(x=190, rely=0.88)
-
-    remove_btn = tk.Button(show_frame, text='Delete', command=lambda: remove_cat(listbox), width=20)
-    remove_btn.place(x=380, rely=0.88)
+def use():
+    messagebox.showinfo(title='How to Use',
+                        message='The use of this app seems fairly intuitive\n'
+                                '♠ The information in parentheses `()` in the logs is the timezone'
+                                '♠ The Bills mode allows you to monitor your monthly bills\n'
+                                '♠ The Category mode allows you to keep track of how much you spend on various things\n'
+                                '♠ When adding a category, it will default to $0 spent\n'
+                                '♠ Resetting data is a permanent process, think twice before doing so')
 
 
 def show_logs():
@@ -366,73 +348,84 @@ def show_logs():
     cat_log_frame.grid(row=1, column=0)
     cat_log_frame.grid_propagate(False)
 
-    bill_log_box = tk.Listbox(bill_log_frame)
-    bill_log_box.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+    bill_h_scrollbar = tk.Scrollbar(bill_log_frame, orient=tk.HORIZONTAL)
+    bill_h_scrollbar.place(x=0, rely=0.9, relwidth=0.97)
+    bill_v_scrollbar = tk.Scrollbar(bill_log_frame, orient=tk.VERTICAL)
+    bill_v_scrollbar.place(relx=0.97, y=0, relheight=1.0)
 
-    cat_log_box = tk.Listbox(cat_log_frame)
-    cat_log_box.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+    bill_log_box = tk.Listbox(bill_log_frame, xscrollcommand=bill_h_scrollbar.set, yscrollcommand=bill_v_scrollbar.set)
+    bill_log_box.place(x=0, y=0, relwidth=0.97, relheight=0.9)
+    bill_h_scrollbar.config(command=bill_log_box.xview)
+    bill_v_scrollbar.config(command=bill_log_box.yview)
+
+    cat_h_scrollbar = tk.Scrollbar(cat_log_frame, orient=tk.HORIZONTAL)
+    cat_h_scrollbar.place(x=0, rely=0.9, relwidth=0.97)
+    cat_v_scrollbar = tk.Scrollbar(cat_log_frame, orient=tk.VERTICAL)
+    cat_v_scrollbar.place(relx=0.97, y=0, relheight=1.0)
+
+    cat_log_box = tk.Listbox(cat_log_frame, xscrollcommand=cat_h_scrollbar.set, yscrollcommand=cat_v_scrollbar.set)
+    cat_log_box.place(x=0, y=0, relwidth=0.97, relheight=0.9)
+    cat_h_scrollbar.config(command=cat_log_box.xview)
+    cat_v_scrollbar.config(command=cat_log_box.yview)
 
     for i, log in enumerate(bills_logs):
         date_time, message = log
         date_time = date_time.split(' ')
         date, time = date_time
-        log_message = f'Payment: {message} made on {date}@{time}({tz})'
+        log_message = f'Payment: {message} on {date}@{time}({tz})'
         bill_log_box.insert(i, log_message)
 
     for i, log in enumerate(cat_logs):
         date_time, message = log
         date_time = date_time.split(' ')
         date, time = date_time
-        log_message = f'Category: {message} made on {date}@{time}({tz})'
+        log_message = f'Category: {message} on {date}@{time}({tz})'
         cat_log_box.insert(i, log_message)
 
 
 def reset_bills():
-    confirm = get_reset_confirm()
+    confirm = _get_reset_confirmation()
     if confirm == 'ok':
         BillTracker.reset()
 
 
 def reset_cat():
-    confirm = get_reset_confirm()
+    confirm = _get_reset_confirmation()
     if confirm == 'ok':
         CatTracker.reset()
 
 
 def reset_logs():
-    confirm = get_reset_confirm()
+    confirm = _get_reset_confirmation()
     if confirm == 'ok':
         open('log.log', 'w').close()
 
 
 def reset_all():
-    if get_reset_confirm() == 'ok':
+    if _get_reset_confirmation() == 'ok':
         BillTracker.reset()
         CatTracker.reset()
         open('log.log', 'w').close()
 
 
-def get_reset_confirm():
+def _clear_frame(frame: tk.LabelFrame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+
+
+def _get_reset_confirmation():
     return messagebox.showwarning(title='!!! Reset Data !!!',
                                   message='YOU ARE ABOUT TO RESET DATA\nTHIS ACTION IS IRREVERSIBLE')
 
 
-def about():
-    messagebox.showinfo(title='About',
-                        message='This application is still a work in progress.\n'
-                                'It is a means to help you become more expense conscious '
-                                'and help manage spending habits. There are some subtle psychological '
-                                'constructs to help achieve that goal\n'
-                                '\n!!! DOES NOT COLLECT ANY FINANCIAL INSTITUTION INFORMATION !!!')
-
-
-def use():
-    messagebox.showinfo(title='How to Use',
-                        message='The use of this app seems fairly intuitive\n'
-                                '♠ The Bills mode allows you to monitor your monthly bills\n'
-                                '♠ The Category mode allows you to keep track of how much you spend on various things\n'
-                                '♠ When adding a category, it will default to $0 spent\n'
-                                '♠ Resetting data is a permanent process, think twice before doing so')
+def _to_float(variable):
+    variable = variable.split(',')
+    variable = ''.join(variable)
+    try:
+        variable = float(variable)
+    except ValueError:
+        return None
+    return variable
 
 
 root = tk.Tk()

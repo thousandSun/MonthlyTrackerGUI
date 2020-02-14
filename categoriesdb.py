@@ -83,7 +83,7 @@ class CatTracker:
                                      message='You have made an invalid selection. Please select again')
                 return None
 
-    def get_categories(self):
+    def get_categories(self) -> [tuple]:
         with DatabaseConnection(self.categories_database) as connection:
             cursor = connection.cursor()
             cursor.execute('SELECT *, oid FROM categories')
@@ -95,7 +95,7 @@ class CatTracker:
         self.logger.info(message)
 
     @staticmethod
-    def get_logs():
+    def get_logs() -> [[str, str]]:
         with open('log.log') as f:
             logs = f.readlines()
         logs = [log.strip() for log in logs if 'Category' in log]

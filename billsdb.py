@@ -123,7 +123,7 @@ class BillTracker:
             entries = cursor.fetchall()
         return entries
 
-    def get_bill(self, oid):
+    def get_bill(self, oid) -> [tuple]:
         with DatabaseConnection(self.bills_db) as connection:
             connection.text_factory = str
             cursor = connection.cursor()
@@ -138,30 +138,17 @@ class BillTracker:
 
         return expense
 
-    @staticmethod
-    def _to_float(variable):
-        variable = variable.split(',')
-        variable = ''.join(variable)
-
-        try:
-            variable = float(variable)
-        except ValueError:
-            return None
-
-        return variable
-
     def _write_payment_log(self, name: str, amount: float):
         log_message = f'{name} for amount ${amount:,.2f}'
         self.logger.info(log_message)
 
     @staticmethod
-    def get_logs():
+    def get_logs() -> [[str, str]]:
         with open('log.log') as f:
             logs = f.readlines()
         logs = [log.strip() for log in logs if 'Payment' in log]
         logs = [log.split(' Payment : ') for log in logs]
         return logs
-
 
     @staticmethod
     def reset():
