@@ -7,9 +7,11 @@ from billsdb import BillTracker
 from categoriesdb import CatTracker
 from database_connection import DatabaseConnection
 from tkinter import messagebox
+from tzlocal import get_localzone
 
 bill_tracker = BillTracker()
 cat_tracker = CatTracker()
+tz = get_localzone()
 
 
 def get_entries() -> list:
@@ -364,9 +366,25 @@ def show_logs():
     cat_log_frame.grid(row=1, column=0)
     cat_log_frame.grid_propagate(False)
 
-    h_scrollbar = tk.Scrollbar(bill_log_frame, orient=tk.HORIZONTAL)
-    h_scrollbar.grid(row=1, colum=0)
-    v_scrollbar = tk.Scrollbar()
+    bill_log_box = tk.Listbox(bill_log_frame)
+    bill_log_box.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+
+    cat_log_box = tk.Listbox(cat_log_frame)
+    cat_log_box.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+
+    for i, log in enumerate(bills_logs):
+        date_time, message = log
+        date_time = date_time.split(' ')
+        date, time = date_time
+        log_message = f'Payment: {message} made on {date}@{time}({tz})'
+        bill_log_box.insert(i, log_message)
+
+    for i, log in enumerate(cat_logs):
+        date_time, message = log
+        date_time = date_time.split(' ')
+        date, time = date_time
+        log_message = f'Category: {message} made on {date}@{time}({tz})'
+        cat_log_box.insert(i, log_message)
 
 
 def reset_bills():
@@ -399,6 +417,24 @@ def get_reset_confirm():
                                   message='YOU ARE ABOUT TO RESET DATA\nTHIS ACTION IS IRREVERSIBLE')
 
 
+def about():
+    messagebox.showinfo(title='About',
+                        message='This application is still a work in progress.\n'
+                                'It is a means to help you become more expense conscious '
+                                'and help manage spending habits. There are some subtle psychological '
+                                'constructs to help achieve that goal\n'
+                                '\n!!! DOES NOT COLLECT ANY FINANCIAL INSTITUTION INFORMATION !!!')
+
+
+def use():
+    messagebox.showinfo(title='How to Use',
+                        message='The use of this app seems fairly intuitive\n'
+                                '♠ The Bills mode allows you to monitor your monthly bills\n'
+                                '♠ The Category mode allows you to keep track of how much you spend on various things\n'
+                                '♠ When adding a category, it will default to $0 spent\n'
+                                '♠ Resetting data is a permanent process, think twice before doing so')
+
+
 root = tk.Tk()
 root.option_add('*tearOff', False)
 root.title('Monthly Tracker')
@@ -424,9 +460,9 @@ menubar.add_cascade(label='Help', menu=help_menu)
 mode_menu.add_command(label='Bills', command=bills)
 mode_menu.add_command(label='Categories', command=category)
 
-help_menu.add_command(label='About')
-help_menu.add_command(label='Show logs')
-help_menu.add_command(label='How to Use')
+help_menu.add_command(label='About', command=about)
+help_menu.add_command(label='How to Use', command=use)
+help_menu.add_command(label='Show logs', command=show_logs)
 help_menu.add_cascade(label='Reset Data', menu=reset_menu)
 reset_menu.add_command(label='Bills', command=reset_bills)
 reset_menu.add_command(label='Categories', command=reset_cat)

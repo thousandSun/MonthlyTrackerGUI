@@ -151,16 +151,17 @@ class BillTracker:
         return variable
 
     def _write_payment_log(self, name: str, amount: float):
-        log_message = f'{name} for amount ${amount:,.2f} made.'
+        log_message = f'{name} for amount ${amount:,.2f}'
         self.logger.info(log_message)
 
     @staticmethod
-    def get_logs() -> [[str, str]]:
+    def get_logs():
         with open('log.log') as f:
             logs = f.readlines()
         logs = [log.strip() for log in logs if 'Payment' in log]
-        bills_log = [log.split(' Payment: ') for log in logs]  # [['date time', message]]
-        return bills_log
+        logs = [log.split(' Payment : ') for log in logs]
+        return logs
+
 
     @staticmethod
     def reset():

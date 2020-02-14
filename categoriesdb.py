@@ -91,7 +91,7 @@ class CatTracker:
         return categories
 
     def _write_log(self, name: str, amount: float):
-        message = f'Spent ${amount:,.2f} for {name}'
+        message = f'Spent ${amount:,.2f} on {name}'
         self.logger.info(message)
 
     @staticmethod
@@ -99,7 +99,7 @@ class CatTracker:
         with open('log.log') as f:
             logs = f.readlines()
         logs = [log.strip() for log in logs if 'Category' in log]
-        cat_logs = [log.split(' Category: ') for log in logs]
+        cat_logs = [log.split(' Category : ') for log in logs]
         return cat_logs
 
     @staticmethod
