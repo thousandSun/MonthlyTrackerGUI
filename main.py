@@ -1,5 +1,6 @@
-""""TODO: properly deal with entry if its `PAID IN FULL`
-TODO: look for way to update windows with appropriate information, ask StackOverFlow if needed * can wait till end *"""
+""""
+TODO: look for way to update windows with appropriate information, ask StackOverFlow if needed * can wait till end *
+"""
 import tkinter as tk
 from billsdb import BillTracker
 from categoriesdb import CatTracker
@@ -108,6 +109,9 @@ def payment_window(lb: tk.Listbox):
     if len(selected) < 1:
         messagebox.showwarning(title='Invalid selection', message='Please select an entry to proceed')
         return
+    selected_messge = lb.get(selected[0])
+    if 'PAID IN FULL' in selected_messge:
+        return 
     payment_ui = tk.Toplevel()
     payment_ui.geometry('300x200')
     payment_ui.title('Payment')
@@ -152,7 +156,7 @@ def payment_window(lb: tk.Listbox):
 
 
 # intermediary method to deal with invalid GUI payment input before sending amount to BillTracker
-def pay(amount: float, oid: int):
+def pay(amount: float, oid: int,):
     if amount is None:
         messagebox.showwarning(title='Invalid Payment', message='Please enter a valid payment amount')
         return
